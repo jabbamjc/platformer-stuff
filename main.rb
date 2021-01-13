@@ -1,3 +1,4 @@
+
 $gtk.reset
 attr_gtk
 class Map_editor
@@ -145,6 +146,7 @@ class Map_editor
 
 		folderPath = "D:/dragonruby-windows-amd64/mygame/sprites/#{@currentTileMenu[:id]}"
 		@menuSprites = ls(folderPath).select { |path| path.end_with? '.png' } if @flag
+	
 
 		headerX, headerY, headerW, headerH = 70, 720 - 30, 150, 25
 		outputs.solids << [headerX, headerY, headerW, headerH, 220, 220, 220]
@@ -155,18 +157,15 @@ class Map_editor
 		height = ((@menuSprites.length() - lastRow) / width) 
 
 		border = 4
-		x, y, w, fromTop = 0, 0, @tileWidth, 720-30-@tileWidth- border
+		x, y, w, fromTop = 0, -1, @tileWidth, 720-30-@tileWidth- border
 		count = 0
-		for y in 0..height-1 do
-			for x in 0..width-1 do
-				outputs.sprites << { x: (x*w)+(border*(x+1)), y: fromTop-(y*w), w: w, h: w, path: @menuSprites[count] }
-				@currentTile = "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[count]}" if menu_sprite_pressed (x*w)+(border*(x+1)), fromTop-(y*w), w, w
-				count += 1
-			end
-		end		
-		for i in 0..lastRow-1 do
-			outputs.sprites << { x: (i*w)+(border*(i+1)), y: fromTop, w: w, h: w, path: "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[i]}" }
-			@currentTile = "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[i]}" if menu_sprite_pressed (i*w)+(border*(i+1)), fromTop, w, w
+
+		for x in 0..@menuSprites.length()-1 do
+			y += 1 if x % width == 0
+			x -= width * y
+			outputs.sprites << { x: (x*w)+(border*(x+1)), y: fromTop-(y*w)-(border*y), w: w, h: w, path: "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[count]}" }
+			@currentTile = "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[count]}" if menu_sprite_pressed (x*w)+(border*(x+1)), fromTop-(y*w), w, w
+			count += 1 
 		end
 	end
 
@@ -216,7 +215,7 @@ class Map_editor
 		keybinds
 		set_tile
 		render_menu
-
+		puts @menuSprites if args.inputs.mouse.click
 	end
 end
 
