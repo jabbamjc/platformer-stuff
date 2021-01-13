@@ -12,9 +12,8 @@ class Map_editor
 		@width = 1280/@tileWidth
 		@map = Array.new(@height){Array.new(@width){0}}
 
-		@currentTile = "platform"
+		@currentTile = 0
 
-		@delayTick = 0
 		@inMenu = false
 		@currentTileMenu 
 
@@ -68,14 +67,17 @@ class Map_editor
 
 	def render_background
 		outputs.solids << [0, 0, 1280, 720, 100, 100, 100]
-		temp = args.state.tick_count
-		@delayTick = args.state.tick_count if temp % 60 == 0
+		outputs.labels << [10, 20, gtk.current_framerate]
 	end
 
 	def side_scroll
 		#accelerate over time
 		@cameraOffset -= 5 if args.inputs.keyboard.key_held.d && @cameraOffset > - @menuWidth - 10
 		@cameraOffset += 5 if args.inputs.keyboard.key_held.a && @cameraOffset < 5
+	end
+
+	def keybinds
+		@currentTile = "eraser" if args.inputs.keyboard.key_down.e
 	end
 
 	def render_map 
@@ -105,6 +107,7 @@ class Map_editor
 			if button_clicked @menuButtons[i] 
 				@inMenu = true
 				@currentTileMenu = @menuButtons[i]
+				@flag = true
 			end
 		end
 	end
@@ -127,40 +130,43 @@ class Map_editor
 	end
 
 	def ls path
+		@flag = false
 		return `cmd /c "dir /b \"#{path}\""`.split("\r\n") #if $gtk.platform == 'Windows'
 		#return `ls \"#{path}\"`.split("\n") if $gtk.platform == 'Linux' || $gtk.platform == 'Mac Os X'
 	end
 
-	def render_tile_sprites 
+	def render_tile_sprites
 		outputs.primitives << [@back[:primitives]]
 		if button_clicked @back
 			@inMenu = false
+			@flag = false
+			return
 		end
+
+		folderPath = "D:/dragonruby-windows-amd64/mygame/sprites/#{@currentTileMenu[:id]}"
+		@menuSprites = ls(folderPath).select { |path| path.end_with? '.png' } if @flag
 
 		headerX, headerY, headerW, headerH = 70, 720 - 30, 150, 25
 		outputs.solids << [headerX, headerY, headerW, headerH, 220, 220, 220]
 		outputs.labels << [headerX, headerY + headerH, @currentTileMenu[:id]]
 
-		folderPath = "D:/dragonruby-windows-amd64/mygame/sprites/#{@currentTileMenu[:id]}"
-		menuSprites = ls(folderPath).select { |path| path.end_with? '.png' } 
-		
 		width = (@menuWidth/@tileWidth)-1 #7
-		lastRow = menuSprites.length() % width
-		height = ((menuSprites.length() - lastRow) / width) 
+		lastRow = @menuSprites.length() % width
+		height = ((@menuSprites.length() - lastRow) / width) 
 
 		border = 4
 		x, y, w, fromTop = 0, 0, @tileWidth, 720-30-@tileWidth- border
 		count = 0
 		for y in 0..height-1 do
 			for x in 0..width-1 do
-				outputs.sprites << [(x*w)+(border*(x+1)), fromTop-(y*w), w, w, menuSprites[count]]
-				@currentTile = "sprites/#{@currentTileMenu[:id]}/#{menuSprites[count]}" if menu_sprite_pressed (x*w)+(border*(x+1)), fromTop-(y*w), w, w
+				outputs.sprites << { x: (x*w)+(border*(x+1)), y: fromTop-(y*w), w: w, h: w, path: @menuSprites[count] }
+				@currentTile = "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[count]}" if menu_sprite_pressed (x*w)+(border*(x+1)), fromTop-(y*w), w, w
 				count += 1
 			end
 		end		
 		for i in 0..lastRow-1 do
-			outputs.sprites << [(i*w)+(border*(i+1)), fromTop, w, w, "sprites/#{@currentTileMenu[:id]}/#{menuSprites[i]}"]
-			@currentTile = "sprites/#{@currentTileMenu[:id]}/#{menuSprites[i]}" if menu_sprite_pressed (i*w)+(border*(i+1)), fromTop, w, w
+			outputs.sprites << { x: (i*w)+(border*(i+1)), y: fromTop, w: w, h: w, path: "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[i]}" }
+			@currentTile = "sprites/#{@currentTileMenu[:id]}/#{@menuSprites[i]}" if menu_sprite_pressed (i*w)+(border*(i+1)), fromTop, w, w
 		end
 	end
 
@@ -188,24 +194,29 @@ class Map_editor
 	end
 	
 	def set_tile 
-		if args.inputs.mouse.click
-			temp = tile_pressed 
-			x, y = temp[0], temp[1]
+		temp = tile_pressed 
+		x, y = temp[0], temp[1]
+		tileX, tileY = (temp[0]*@tileWidth) + @totalOffset + 5 , (temp[1]*@tileWidth)
 
-			if @map[y][x] == @currentTile
+		if args.inputs.mouse.click && tileX >= @menuWidth
+			if @map[y][x] == @currentTile || @currentTile == "eraser"
 				@map[y][x] = 0
 			else 
 				@map[y][x] = @currentTile
 			end
 		end
+
+		args.outputs.primitives << { x: tileX, y: tileY, w: @tileWidth, h: @tileWidth, r: 255, g: 255, b: 255 }.border if tileX >= @menuWidth
+
 	end
 
 	def tick
 		render_background
 		render_map
+		keybinds
 		set_tile
 		render_menu
-		
+
 	end
 end
 
